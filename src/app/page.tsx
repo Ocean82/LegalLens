@@ -47,7 +47,7 @@ export default function HomePage() {
         router.replace("/dashboard");
       }
     } catch {
-      setError("Network error. Please try again.");
+      setError("Unable to connect. The server may be starting up — try again in a moment.");
     } finally {
       setLoading(false);
     }

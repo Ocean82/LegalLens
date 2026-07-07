@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { searches, legalResults } from "@/db/schema";
 import { getCurrentUserId } from "@/lib/auth";
 import { scrapeAllSources } from "@/lib/scraper";
+import { rateLimit } from "@/lib/rate-limit";
 import { eq, desc } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
@@ -11,9 +12,23 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Rate limit: 5 searches per minute per user
+    const { success, remaining } = rateLimit(`search:${userId}`, 5, 60000);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Too many searches. Please wait a moment before trying again." },
+        { status: 429, headers: { "X-RateLimit-Remaining": String(remaining) } }
+      );
+    }
+
     const { query, jurisdiction, category } = await req.json();
     if (!query || !jurisdiction) {
       return NextResponse.json({ error: "Query and jurisdiction required" }, { status: 400 });
+    }
+
+    if (query.length > 200) {
+      return NextResponse.json({ error: "Query too long (max 200 characters)" }, { status: 400 });
     }
 
     // Create search record
